@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IoT Temperature Forecasting System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .card {
+            margin-bottom: 20px;
+        }
+        .current-temp {
+            font-size: 3rem;
+            font-weight: bold;
+        }
+        .temp-unit {
+            font-size: 1.5rem;
+            vertical-align: super;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-12">
+                <h1 class="text-center my-4">IoT Temperature Forecasting System</h1>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-4">
+                <div class="card text-center">
+                    <div class="card-header">Current Temperature</div>
+                    <div class="card-body">
+                        <div class="current-temp">
+                            <span id="current-temp">--</span>
+                            <span class="temp-unit">°C</span>
+                        </div>
+                        <p class="card-text" id="current-time">--</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card text-center">
+                    <div class="card-header">Humidity</div>
+                    <div class="card-body">
+                        <div class="current-temp">
+                            <span id="current-humidity">--</span>
+                            <span class="temp-unit">%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card text-center">
+                    <div class="card-header">Pressure</div>
+                    <div class="card-body">
+                        <div class="current-temp">
+                            <span id="current-pressure">--</span>
+                            <span class="temp-unit">hPa</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header">Temperature History</div>
+                    <div class="card-body">
+                        <canvas id="history-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">Forecast</div>
+                    <div class="card-body">
+                        <canvas id="forecast-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">System Controls</div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h5>Simulation Settings</h5>
+                                <form id="settings-form">
+                                    <div class="mb-3">
+                                        <label for="base-temp" class="form-label">Base Temperature (°C)</label>
+                                        <input type="number" class="form-control" id="base-temp" step="0.1" value="25">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="amplitude" class="form-label">Temperature Amplitude</label>
+                                        <input type="number" class="form-control" id="amplitude" step="0.1" value="10">
+                                    </div>
+                                    <button type="submit" class="btn btn-primary">Update Settings</button>
+                                </form>
+                            </div>
+                            <div class="col-md-6">
+                                <h5>Forecast Controls</h5>
+                                <div class="mb-3">
+                                    <label for="forecast-hours" class="form-label">Forecast Hours</label>
+                                    <select class="form-select" id="forecast-hours">
+                                        <option value="12">12 Hours</option>
+                                        <option value="24" selected>24 Hours</option>
+                                        <option value="48">48 Hours</option>
+                                        <option value="72">72 Hours</option>
+                                    </select>
+                                </div>
+                                <button id="refresh-btn" class="btn btn-success">Refresh Data</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Global variables
+        let historyChart = null;
+        let forecastChart = null;
+        let refreshInterval = null;
+        
+        // Initialize charts
+        function initCharts() {
+            const historyCtx = document.getElementById('history-chart').getContext('2d');
+            historyChart = new Chart(historyCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Temperature (°C)',
+                        data: [],
+                        borderColor: 'rgb(255, 99, 132)',
+                        backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: 'Time'
+                            }
+                        },
+                        y: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: 'Temperature (°C)'
+                            }
+                        }
+                    }
+                }
+            });
+            
+            const forecastCtx = document.getElementById('forecast-chart').getContext('2d');
+            forecastChart = new Chart(forecastCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Forecast (°C)',
+                        data: [],
+                        borderColor: 'rgb(54, 162, 235)',
+                        backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: 'Time'
+                            }
+                        },
+                        y: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: 'Temperature (°C)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Update current temperature display
+        function updateCurrentTemperature() {
+            fetch('/api/temperature/current')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('current-temp').textContent = data.temperature;
+                    document.getElementById('current-humidity').textContent = data.humidity.toFixed(1);
+                    document.getElementById('current-pressure').textContent = data.pressure.toFixed(1);
+                    document.getElementById('current-time').textContent = new Date(data.timestamp).toLocaleString();
+                })
+                .catch(error => console.error('Error fetching current temperature:', error));
+        }
+        
+        // Update temperature history chart
+        function updateHistoryChart() {
+            fetch('/api/temperature/history?hours=24')
+                .then(response => response.json())
+                .then(data => {
+                    const labels = data.map(item => new Date(item.timestamp).toLocaleTimeString());
+                    const temperatures = data.map(item => item.temperature);
+                    
+                    historyChart.data.labels = labels;
+                    historyChart.data.datasets[0].data = temperatures;
+                    historyChart.update();
+                })
+                .catch(error => console.error('Error fetching history data:', error));
+        }
+        
+        // Update forecast chart
+        function updateForecastChart() {
+            const hours = document.getElementById('forecast-hours').value;
+            fetch(`/api/temperature/forecast?hours=${hours}`)
+                .then(response => response.json())
+                .then(data => {
+                    const labels = data.map(item => new Date(item.timestamp).toLocaleTimeString());
+                    const temperatures = data.map(item => item.temperature);
+                    
+                    forecastChart.data.labels = labels;
+                    forecastChart.data.datasets[0].data = temperatures;
+                    forecastChart.update();
+                })
+                .catch(error => console.error('Error fetching forecast data:', error));
+        }
+        
+        // Update all data
+        function updateAllData() {
+            updateCurrentTemperature();
+            updateHistoryChart();
+            updateForecastChart();
+        }
+        
+        // Update settings
+        function updateSettings() {
+            const settings = {
+                base_temperature: parseFloat(document.getElementById('base-temp').value),
+                amplitude: parseFloat(document.getElementById('amplitude').value)
+            };
+            
+            fetch('/api/temperature/settings', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(settings)
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Settings updated:', data);
+                // Refresh data after settings update
+                updateAllData();
+            })
+            .catch(error => console.error('Error updating settings:', error));
+        }
+        
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function() {
+            initCharts();
+            updateAllData();
+            
+            // Set up refresh interval
+            refreshInterval = setInterval(updateAllData, 30000); // 30 seconds
+            
+            // Set up event listeners
+            document.getElementById('refresh-btn').addEventListener('click', updateAllData);
+            document.getElementById('settings-form').addEventListener('submit', function(e) {
+                e.preventDefault();
+                updateSettings();
+            });
+            
+            document.getElementById('forecast-hours').addEventListener('change', updateForecastChart);
+        });
+    </script>
+</body>
+</html>

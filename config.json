@@ -1,0 +1,13 @@
+{
+    "simulation": {
+        "update_interval": 60,
+        "data_retention_days": 7
+    },
+    "forecasting": {
+        "model_update_interval": 3600,
+        "default_forecast_hours": 24
+    },
+    "web": {
+        "refresh_interval": 30
+    }
+}
